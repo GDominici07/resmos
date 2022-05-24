@@ -56,7 +56,7 @@ def create_files(directory, size=1024, text=None, number=1) -> None:
         queue.put(i)
     queue.join()
 
-    logging.info(f"[OK] Created {number} files in {directory}", extra={
+    logging.info(f"[OK] Created {number-1} files in {directory}", extra={
                  "color": "\033[32m"})
 
 
@@ -65,9 +65,9 @@ def main():
     parser.add_argument("-d", "--directory", type=str,
                         default=os.path.dirname(__file__), help='directory to create files in')
     parser.add_argument("-n", "--number", type=int, default=11,
-                        help='number of files to create (1st file is not counted.)')
-    parser.add_argument("-s", "--size", type=int, default=1,
-                        help='size of files to create in MB')
+                        help='number of files to create')
+    parser.add_argument("-s", "--size", type=int, default=1024,
+                        help='size of files to create in kb')
     parser.add_argument("-v", "--verbose", action="store_true",
                         help='activate verbose output.')
     parser.add_argument("-S", "--silent", action="store_true",
@@ -79,8 +79,8 @@ def main():
     logging.basicConfig(format='[%(asctime)s] %(color)s%(message)s\033[0m',
                         datefmt='%H:%M:%S', level=10*(2-args.verbose+2*args.silent))
 
-    number = args.number
-    size = args.size<<20
+    number = args.number+1
+    size = args.size<<10
     directory = os.path.abspath(args.directory)
     text = bytes(args.text, encoding='utf-8') if args.text else None
     time = timeit(lambda: create_files(

