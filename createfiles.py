@@ -12,8 +12,8 @@ from timeit import timeit
 from queue import Queue
 
 if sys.platform == 'win32':
-    #enable virtual terminal colors (ansii escape codes)
-    
+    # enable virtual terminal colors (ansii escape codes)
+
     ctypes.windll.kernel32.SetConsoleMode(
         ctypes.windll.kernel32.GetStdHandle(-11), 7)
 
@@ -29,7 +29,7 @@ def createfile(directory, size=1024, text: bytes = None, q=Queue()) -> None:
     try:
         while 1:
             i = q.get()
-            if i==0:
+            if i == 0:
                 q.task_done()
                 break
             logging.debug(
@@ -80,7 +80,7 @@ def main():
                         datefmt='%H:%M:%S', level=10*(2-args.verbose+2*args.silent))
 
     number = args.number+1
-    size = args.size<<10
+    size = args.size << 10
     directory = os.path.abspath(args.directory)
     text = bytes(args.text, encoding='utf-8') if args.text else None
     time = timeit(lambda: create_files(
